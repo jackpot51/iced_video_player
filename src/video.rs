@@ -2,7 +2,7 @@ use crate::Error;
 use gstreamer as gst;
 use gstreamer_app as gst_app;
 use gstreamer_app::prelude::*;
-use iced::widget::image as img;
+use cosmic::iced::widget::image as img;
 use std::cell::RefCell;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -442,7 +442,7 @@ impl Video {
                     while !inner.upload_frame.load(Ordering::SeqCst) {
                         std::hint::spin_loop();
                     }
-                    Ok(img::Handle::from_rgba(
+                    Ok(img::Handle::from_pixels(
                         inner.width as _,
                         inner.height as _,
                         yuv_to_rgba(

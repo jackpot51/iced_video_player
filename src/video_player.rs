@@ -1,10 +1,11 @@
 use crate::{pipeline::VideoPrimitive, video::Video};
 use gstreamer as gst;
-use iced::{
+use cosmic::iced::{
+    self,
     advanced::{self, graphics::core::event::Status, layout, widget, Widget},
     Element,
 };
-use iced_wgpu::primitive::Renderer as PrimitiveRenderer;
+use cosmic::iced_wgpu::primitive::pipeline::Renderer as PrimitiveRenderer;
 use log::error;
 use std::{marker::PhantomData, sync::atomic::Ordering};
 use std::{sync::Arc, time::Instant};
@@ -32,7 +33,7 @@ where
     pub fn new(video: &'a Video) -> Self {
         VideoPlayer {
             video,
-            content_fit: iced::ContentFit::default(),
+            content_fit: iced::ContentFit::Contain,
             width: iced::Length::Shrink,
             height: iced::Length::Shrink,
             on_end_of_stream: None,
@@ -152,7 +153,7 @@ where
             adjusted_fit.width / image_size.width,
             adjusted_fit.height / image_size.height,
         );
-        let final_size = image_size * scale;
+        let final_size = iced::Size::new(image_size.width * scale.x, image_size.height * scale.y);
 
         let position = match self.content_fit {
             iced::ContentFit::None => iced::Point::new(
@@ -178,7 +179,7 @@ where
             inner.set_av_offset(Instant::now() - last_frame_time);
         }
 
-        renderer.draw_primitive(
+        renderer.draw_pipeline_primitive(
             drawing_bounds,
             VideoPrimitive::new(
                 inner.id,
@@ -203,7 +204,7 @@ where
     ) -> Status {
         let mut inner = self.video.0.borrow_mut();
 
-        if let iced::Event::Window(iced::window::Event::RedrawRequested(_)) = event {
+        if let iced::Event::Window(_, iced::window::Event::RedrawRequested(_)) = event {
             if inner.restart_stream || (!inner.is_eos && !inner.paused.load(Ordering::SeqCst)) {
                 let mut restart_stream = false;
                 if inner.restart_stream {

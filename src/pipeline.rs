@@ -1,5 +1,5 @@
-use iced_wgpu::primitive::Primitive;
-use iced_wgpu::wgpu;
+use cosmic::iced;
+use cosmic::iced_wgpu::{self, primitive::pipeline::Primitive, wgpu};
 use std::{
     collections::BTreeMap,
     sync::{
@@ -294,7 +294,7 @@ impl VideoPipeline {
         }
     }
 
-    fn prepare(&mut self, queue: &wgpu::Queue, video_id: u64, bounds: &iced::Rectangle) {
+    fn prepare(&mut self, queue: &wgpu::Queue, video_id: u64, bounds: iced::Rectangle) {
         if let Some((_, _, buffer, _, _)) = self.textures.get(&video_id) {
             let uniforms = Uniforms {
                 rect: [
@@ -319,7 +319,7 @@ impl VideoPipeline {
         &self,
         target: &wgpu::TextureView,
         encoder: &mut wgpu::CommandEncoder,
-        viewport: &iced::Rectangle<u32>,
+        viewport: iced::Rectangle<u32>,
         video_id: u64,
     ) {
         if let Some((_, _, _, bind_group, _)) = self.textures.get(&video_id) {
@@ -383,12 +383,13 @@ impl VideoPrimitive {
 impl Primitive for VideoPrimitive {
     fn prepare(
         &self,
+        format: wgpu::TextureFormat,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        format: wgpu::TextureFormat,
-        storage: &mut iced_wgpu::primitive::Storage,
-        bounds: &iced::Rectangle,
-        _viewport: &iced_wgpu::graphics::Viewport,
+        bounds: iced::Rectangle,
+        _target_size: iced::Size<u32>,
+        _scale_factor: f32,
+        storage: &mut iced_wgpu::primitive::pipeline::Storage,
     ) {
         if !storage.has::<VideoPipeline>() {
             storage.store(VideoPipeline::new(device, format));
@@ -412,10 +413,11 @@ impl Primitive for VideoPrimitive {
 
     fn render(
         &self,
-        encoder: &mut wgpu::CommandEncoder,
-        storage: &iced_wgpu::primitive::Storage,
+        storage: &iced_wgpu::primitive::pipeline::Storage,
         target: &wgpu::TextureView,
-        clip_bounds: &iced::Rectangle<u32>,
+        _target_size: iced::Size<u32>,
+        clip_bounds: iced::Rectangle<u32>,
+        encoder: &mut wgpu::CommandEncoder,
     ) {
         let pipeline = storage.get::<VideoPipeline>().unwrap();
         pipeline.draw(target, encoder, clip_bounds, self.video_id);
