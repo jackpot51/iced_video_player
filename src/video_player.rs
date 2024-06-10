@@ -1,13 +1,26 @@
-use crate::{pipeline::VideoPrimitive, video::Video};
-use gstreamer as gst;
-use iced::{
+use crate::{gst, gst_pbutils, video::Video};
+use cosmic::iced::{
+    self,
     advanced::{self, graphics::core::event::Status, layout, widget, Widget},
-    Element,
+    mouse, Element,
 };
-use iced_wgpu::primitive::Renderer as PrimitiveRenderer;
 use log::error;
 use std::{marker::PhantomData, sync::atomic::Ordering, time::Duration};
 use std::{sync::Arc, time::Instant};
+
+#[cfg(feature = "wgpu")]
+use crate::pipeline::VideoPrimitive;
+#[cfg(feature = "wgpu")]
+use cosmic::iced_wgpu::primitive::Renderer as PrimitiveRenderer;
+
+#[cfg(not(feature = "wgpu"))]
+use crate::video::yuv_to_rgba;
+#[cfg(not(feature = "wgpu"))]
+use cosmic::iced::advanced::image::Renderer as ImageRenderer;
+#[cfg(not(feature = "wgpu"))]
+trait PrimitiveRenderer: ImageRenderer<Handle = advanced::image::Handle> {}
+#[cfg(not(feature = "wgpu"))]
+impl PrimitiveRenderer for iced::Renderer {}
 
 /// Video player widget which displays the current frame of a [`Video`](crate::Video).
 pub struct VideoPlayer<'a, Message, Theme = iced::Theme, Renderer = iced::Renderer>
@@ -18,10 +31,13 @@ where
     content_fit: iced::ContentFit,
     width: iced::Length,
     height: iced::Length,
+    mouse_hidden: bool,
     on_end_of_stream: Option<Message>,
     on_new_frame: Option<Message>,
     on_subtitle_text: Option<Box<dyn Fn(Option<String>) -> Message + 'a>>,
-    on_error: Option<Box<dyn Fn(&glib::Error) -> Message + 'a>>,
+    on_error: Option<Box<dyn Fn(glib::Error) -> Message + 'a>>,
+    on_missing_plugin: Option<Box<dyn Fn(gst::Message) -> Message + 'a>>,
+    on_warning: Option<Box<dyn Fn(glib::Error) -> Message + 'a>>,
     _phantom: PhantomData<(Theme, Renderer)>,
 }
 
@@ -33,13 +49,16 @@ where
     pub fn new(video: &'a Video) -> Self {
         VideoPlayer {
             video,
-            content_fit: iced::ContentFit::default(),
+            content_fit: iced::ContentFit::Contain,
             width: iced::Length::Shrink,
             height: iced::Length::Shrink,
+            mouse_hidden: false,
             on_end_of_stream: None,
             on_new_frame: None,
             on_subtitle_text: None,
             on_error: None,
+            on_missing_plugin: None,
+            on_warning: None,
             _phantom: Default::default(),
         }
     }
@@ -64,6 +83,13 @@ where
     pub fn content_fit(self, content_fit: iced::ContentFit) -> Self {
         VideoPlayer {
             content_fit,
+            ..self
+        }
+    }
+
+    pub fn mouse_hidden(self, mouse_hidden: bool) -> Self {
+        VideoPlayer {
+            mouse_hidden,
             ..self
         }
     }
@@ -98,10 +124,30 @@ where
     /// Message to send when the video playback encounters an error.
     pub fn on_error<F>(self, on_error: F) -> Self
     where
-        F: 'a + Fn(&glib::Error) -> Message,
+        F: 'a + Fn(glib::Error) -> Message,
     {
         VideoPlayer {
             on_error: Some(Box::new(on_error)),
+            ..self
+        }
+    }
+
+    pub fn on_missing_plugin<F>(self, on_missing_plugin: F) -> Self
+    where
+        F: 'a + Fn(gst::Message) -> Message,
+    {
+        VideoPlayer {
+            on_missing_plugin: Some(Box::new(on_missing_plugin)),
+            ..self
+        }
+    }
+
+    pub fn on_warning<F>(self, on_warning: F) -> Self
+    where
+        F: 'a + Fn(glib::Error) -> Message,
+    {
+        VideoPlayer {
+            on_warning: Some(Box::new(on_warning)),
             ..self
         }
     }
@@ -192,6 +238,7 @@ where
             inner.set_av_offset(Instant::now() - last_frame_time);
         }
 
+        #[cfg(feature = "wgpu")]
         renderer.draw_primitive(
             drawing_bounds,
             VideoPrimitive::new(
@@ -202,6 +249,37 @@ where
                 upload_frame,
             ),
         );
+
+        #[cfg(not(feature = "wgpu"))]
+        {
+            if upload_frame {
+                let yuv_data_opt = match inner.frame.lock() {
+                    Ok(frame) => Some(frame.clone()),
+                    Err(_err) => None,
+                };
+                inner.handle_opt = if let Some(yuv_data) = yuv_data_opt {
+                    //TODO: convert on worker thread?
+                    let rgba_data = yuv_to_rgba(&yuv_data, inner.width as _, inner.height as _, 1);
+                    Some(advanced::image::Handle::from_rgba(
+                        inner.width as _,
+                        inner.height as _,
+                        rgba_data,
+                    ))
+                } else {
+                    None
+                };
+            }
+            if let Some(handle) = &inner.handle_opt {
+                renderer.draw_image(
+                    handle.clone(),
+                    advanced::image::FilterMethod::Nearest,
+                    drawing_bounds,
+                    iced::Radians(0.0),
+                    1.0,
+                    [0.0; 4],
+                );
+            }
+        }
     }
 
     fn on_event(
@@ -235,8 +313,15 @@ where
                         gst::MessageView::Error(err) => {
                             error!("bus returned an error: {err}");
                             if let Some(ref on_error) = self.on_error {
-                                shell.publish(on_error(&err.error()))
+                                shell.publish(on_error(err.error()))
                             };
+                        }
+                        gst::MessageView::Element(element) => {
+                            if gst_pbutils::MissingPluginMessage::is(&element) {
+                                if let Some(ref on_missing_plugin) = self.on_missing_plugin {
+                                    shell.publish(on_missing_plugin(element.copy()));
+                                }
+                            }
                         }
                         gst::MessageView::Eos(_eos) => {
                             if let Some(on_end_of_stream) = self.on_end_of_stream.clone() {
@@ -246,6 +331,12 @@ where
                                 restart_stream = true;
                             } else {
                                 eos_pause = true;
+                            }
+                        }
+                        gst::MessageView::Warning(warn) => {
+                            log::warn!("bus returned a warning: {warn}");
+                            if let Some(ref on_warning) = self.on_warning {
+                                shell.publish(on_warning(warn.error()));
                             }
                         }
                         _ => {}
@@ -285,6 +376,21 @@ where
             Status::Captured
         } else {
             Status::Ignored
+        }
+    }
+
+    fn mouse_interaction(
+        &self,
+        _tree: &widget::Tree,
+        _layout: advanced::Layout<'_>,
+        _cursor_position: mouse::Cursor,
+        _viewport: &iced::Rectangle,
+        _renderer: &Renderer,
+    ) -> mouse::Interaction {
+        if self.mouse_hidden {
+            mouse::Interaction::Hide
+        } else {
+            mouse::Interaction::default()
         }
     }
 }

@@ -34,11 +34,14 @@
 //!
 //! You can programmatically control the video (e.g., seek, pause, loop, grab thumbnails) by accessing various methods on [`Video`].
 
+#[cfg(feature = "wgpu")]
 mod pipeline;
 mod video;
 mod video_player;
 
-use gstreamer as gst;
+pub use gstreamer as gst;
+pub use gstreamer_app as gst_app;
+pub use gstreamer_pbutils as gst_pbutils;
 use thiserror::Error;
 
 pub use video::Position;

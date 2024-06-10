@@ -16,16 +16,27 @@ exclude = [
 ]
 
 [dependencies]
-iced = { version = "0.13", features = ["image", "advanced", "wgpu"] }
-iced_wgpu = "0.13"
 gstreamer = "0.23"
 gstreamer-app = "0.23" # appsink
 gstreamer-base = "0.23" # basesrc
+gstreamer-pbutils = "0.23"
 glib = "0.20" # gobject traits and error type
 log = "0.4"
 thiserror = "1"
 url = "2" # media uri
 html-escape = "0.2.13"
+
+[dependencies.libcosmic]
+git = "https://github.com/pop-os/libcosmic.git"
+default-features = false
+features = ["tokio", "winit"]
+
+[dev-dependencies]
+env_logger = "0.11"
+
+[features]
+default = ["wgpu"]
+wgpu = ["libcosmic/wgpu"]
 
 [package.metadata.nix]
 systems = ["x86_64-linux"]

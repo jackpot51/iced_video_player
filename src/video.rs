@@ -2,7 +2,7 @@ use crate::Error;
 use gstreamer as gst;
 use gstreamer_app as gst_app;
 use gstreamer_app::prelude::*;
-use iced::widget::image as img;
+use cosmic::iced::widget::image as img;
 use std::num::NonZeroU8;
 use std::ops::{Deref, DerefMut};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -68,6 +68,9 @@ pub(crate) struct Internal {
 
     pub(crate) subtitle_text: Arc<Mutex<Option<String>>>,
     pub(crate) upload_text: Arc<AtomicBool>,
+
+    #[cfg(not(feature = "wgpu"))]
+    pub(crate) handle_opt: Option<img::Handle>,
 }
 
 impl Internal {
@@ -394,6 +397,9 @@ impl Video {
 
             subtitle_text,
             upload_text,
+
+            #[cfg(not(feature = "wgpu"))]
+            handle_opt: None,
         })))
     }
 
@@ -581,7 +587,7 @@ impl Video {
     }
 }
 
-fn yuv_to_rgba(yuv: &[u8], width: u32, height: u32, downscale: u32) -> Vec<u8> {
+pub(crate) fn yuv_to_rgba(yuv: &[u8], width: u32, height: u32, downscale: u32) -> Vec<u8> {
     let uv_start = width * height;
     let mut rgba = vec![];
 

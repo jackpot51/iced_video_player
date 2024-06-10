@@ -54,10 +54,5 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     rgb.y = dot(yuv, yuv2g);
     rgb.z = dot(yuv, yuv2b);
 
-    let threshold = rgb <= vec3<f32>(0.04045);
-    let hi = pow((rgb + vec3<f32>(0.055)) / vec3<f32>(1.055), vec3<f32>(2.4));
-    let lo = rgb * vec3<f32>(1.0 / 12.92);
-    rgb = select(hi, lo, threshold);
-
     return vec4<f32>(rgb, 1.0);
 }
