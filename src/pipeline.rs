@@ -1,5 +1,5 @@
-use iced_wgpu::primitive::Primitive;
-use iced_wgpu::wgpu;
+use cosmic::iced;
+use cosmic::iced_wgpu::{self, primitive::Primitive, wgpu};
 use std::{
     collections::BTreeMap,
     sync::{
@@ -91,6 +91,7 @@ impl VideoPipeline {
                 module: &shader,
                 entry_point: "vs_main",
                 buffers: &[],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             primitive: wgpu::PrimitiveState::default(),
             depth_stencil: None,
@@ -107,8 +108,10 @@ impl VideoPipeline {
                     blend: None,
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
             }),
             multiview: None,
+            cache: None,
         });
 
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {

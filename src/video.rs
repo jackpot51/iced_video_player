@@ -1,8 +1,5 @@
-use crate::Error;
-use gstreamer as gst;
-use gstreamer_app as gst_app;
-use gstreamer_app::prelude::*;
-use iced::widget::image as img;
+use crate::{gst, gst_app, gst_app::prelude::*, Error};
+use cosmic::iced::widget::image as img;
 use std::cell::RefCell;
 use std::num::NonZeroU8;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -65,6 +62,9 @@ pub(crate) struct Internal {
     pub(crate) restart_stream: bool,
     pub(crate) sync_av_avg: u64,
     pub(crate) sync_av_counter: u64,
+
+    #[cfg(not(feature = "wgpu"))]
+    pub(crate) handle_opt: Option<img::Handle>,
 }
 
 impl Internal {
@@ -325,6 +325,9 @@ impl Video {
             restart_stream: false,
             sync_av_avg: 0,
             sync_av_counter: 0,
+
+            #[cfg(not(feature = "wgpu"))]
+            handle_opt: None,
         })))
     }
 

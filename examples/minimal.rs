@@ -1,3 +1,5 @@
+use cosmic::iced;
+
 use iced::{
     widget::{Button, Column, Container, Row, Slider, Text},
     Element,
