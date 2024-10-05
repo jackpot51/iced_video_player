@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use cosmic::app::{Command, Core, Settings};
-use cosmic::iced_core::Size;
+use cosmic::iced_core::{Length, Size};
 use cosmic::widget::{self, Column, Row, Slider};
 use cosmic::{executor, Element};
 use iced_video_player::{Video, VideoPlayer};
@@ -84,8 +84,11 @@ impl cosmic::Application for App {
             }
             Message::Seek(secs) => {
                 self.dragging = true;
-                self.video.set_paused(true);
                 self.position = secs;
+                self.video
+                    .seek(Duration::from_secs_f64(self.position), false)
+                    .expect("seek");
+                self.video.set_paused(false);
             }
             Message::SeekRelease => {
                 self.dragging = false;
@@ -98,7 +101,9 @@ impl cosmic::Application for App {
                 println!("end of stream");
             }
             Message::NewFrame => {
-                if !self.dragging {
+                if self.dragging {
+                    self.video.set_paused(true);
+                } else {
                     self.position = self.video.position().as_secs_f64();
                 }
             }
@@ -109,14 +114,18 @@ impl cosmic::Application for App {
     /// Creates a view after each update.
     fn view(&self) -> Element<Self::Message> {
         Column::new()
+            .push(widget::vertical_space(Length::Fill))
             .push(
                 VideoPlayer::new(&self.video)
                     .on_end_of_stream(Message::EndOfStream)
-                    .on_new_frame(Message::NewFrame),
+                    .on_new_frame(Message::NewFrame)
+                    .width(Length::Fill)
             )
+            .push(widget::vertical_space(Length::Fill))
             .push(
                 Row::new()
-                    .spacing(5)
+                    .height(Length::Fixed(16.0))
+                    .spacing(8)
                     .push(
                         widget::button::icon(if self.video.paused() {
                             widget::icon::from_name("media-playback-start-symbolic").size(16)
