@@ -38,7 +38,7 @@ mod pipeline;
 mod video;
 mod video_player;
 
-use gstreamer as gst;
+pub use gstreamer as gst;
 use thiserror::Error;
 
 pub use video::Position;
