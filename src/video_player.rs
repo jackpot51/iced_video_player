@@ -1,11 +1,10 @@
-use crate::{pipeline::VideoPrimitive, video::Video};
+use crate::{gst, gst_pbutils, pipeline::VideoPrimitive, video::Video};
 use cosmic::iced::{
     self,
     advanced::{self, graphics::core::event::Status, layout, widget, Widget},
     Element,
 };
 use cosmic::iced_wgpu::primitive::pipeline::Renderer as PrimitiveRenderer;
-use gstreamer as gst;
 use std::{marker::PhantomData, sync::atomic::Ordering};
 use std::{sync::Arc, time::Instant};
 
@@ -20,8 +19,9 @@ where
     height: iced::Length,
     on_end_of_stream: Option<Message>,
     on_new_frame: Option<Message>,
-    on_error: Option<Box<dyn Fn(gst::Message) -> Message + 'a>>,
-    on_warning: Option<Box<dyn Fn(gst::Message) -> Message + 'a>>,
+    on_error: Option<Box<dyn Fn(glib::Error) -> Message + 'a>>,
+    on_missing_plugin: Option<Box<dyn Fn(gst::Message) -> Message + 'a>>,
+    on_warning: Option<Box<dyn Fn(glib::Error) -> Message + 'a>>,
     _phantom: PhantomData<(Theme, Renderer)>,
 }
 
@@ -39,6 +39,7 @@ where
             on_end_of_stream: None,
             on_new_frame: None,
             on_error: None,
+            on_missing_plugin: None,
             on_warning: None,
             _phantom: Default::default(),
         }
@@ -86,7 +87,7 @@ where
 
     pub fn on_error<F>(self, on_error: F) -> Self
     where
-        F: 'a + Fn(gst::Message) -> Message,
+        F: 'a + Fn(glib::Error) -> Message,
     {
         VideoPlayer {
             on_error: Some(Box::new(on_error)),
@@ -94,9 +95,19 @@ where
         }
     }
 
-    pub fn on_warning<F>(self, on_warning: F) -> Self
+    pub fn on_missing_plugin<F>(self, on_missing_plugin: F) -> Self
     where
         F: 'a + Fn(gst::Message) -> Message,
+    {
+        VideoPlayer {
+            on_missing_plugin: Some(Box::new(on_missing_plugin)),
+            ..self
+        }
+    }
+
+    pub fn on_warning<F>(self, on_warning: F) -> Self
+    where
+        F: 'a + Fn(glib::Error) -> Message,
     {
         VideoPlayer {
             on_warning: Some(Box::new(on_warning)),
@@ -230,8 +241,15 @@ where
                         gst::MessageView::Error(err) => {
                             log::error!("bus returned an error: {err}");
                             if let Some(ref on_error) = self.on_error {
-                                shell.publish(on_error(err.copy()))
-                            };
+                                shell.publish(on_error(err.error()));
+                            }
+                        }
+                        gst::MessageView::Element(element) => {
+                            if gst_pbutils::MissingPluginMessage::is(&element) {
+                                if let Some(ref on_missing_plugin) = self.on_missing_plugin {
+                                    shell.publish(on_missing_plugin(element.copy()));
+                                }
+                            }
                         }
                         gst::MessageView::Eos(_eos) => {
                             if let Some(on_end_of_stream) = self.on_end_of_stream.clone() {
@@ -246,8 +264,8 @@ where
                         gst::MessageView::Warning(warn) => {
                             log::warn!("bus returned a warning: {warn}");
                             if let Some(ref on_warning) = self.on_warning {
-                                shell.publish(on_warning(warn.copy()))
-                            };
+                                shell.publish(on_warning(warn.error()));
+                            }
                         }
                         _ => {}
                     }

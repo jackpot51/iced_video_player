@@ -1,8 +1,5 @@
-use crate::Error;
+use crate::{gst, gst_app, gst_app::prelude::*, Error};
 use cosmic::iced::widget::image as img;
-use gstreamer as gst;
-use gstreamer_app as gst_app;
-use gstreamer_app::prelude::*;
 use std::cell::RefCell;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
