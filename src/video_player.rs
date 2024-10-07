@@ -2,7 +2,7 @@ use crate::{gst, gst_pbutils, pipeline::VideoPrimitive, video::Video};
 use cosmic::iced::{
     self,
     advanced::{self, graphics::core::event::Status, layout, widget, Widget},
-    Element,
+    mouse, Element,
 };
 use cosmic::iced_wgpu::primitive::pipeline::Renderer as PrimitiveRenderer;
 use std::{marker::PhantomData, sync::atomic::Ordering};
@@ -17,6 +17,7 @@ where
     content_fit: iced::ContentFit,
     width: iced::Length,
     height: iced::Length,
+    mouse_hidden: bool,
     on_end_of_stream: Option<Message>,
     on_new_frame: Option<Message>,
     on_error: Option<Box<dyn Fn(glib::Error) -> Message + 'a>>,
@@ -36,6 +37,7 @@ where
             content_fit: iced::ContentFit::Contain,
             width: iced::Length::Shrink,
             height: iced::Length::Shrink,
+            mouse_hidden: false,
             on_end_of_stream: None,
             on_new_frame: None,
             on_error: None,
@@ -65,6 +67,13 @@ where
     pub fn content_fit(self, content_fit: iced::ContentFit) -> Self {
         VideoPlayer {
             content_fit,
+            ..self
+        }
+    }
+
+    pub fn mouse_hidden(self, mouse_hidden: bool) -> Self {
+        VideoPlayer {
+            mouse_hidden,
             ..self
         }
     }
@@ -294,6 +303,21 @@ where
             Status::Captured
         } else {
             Status::Ignored
+        }
+    }
+
+    fn mouse_interaction(
+        &self,
+        _tree: &widget::Tree,
+        _layout: advanced::Layout<'_>,
+        _cursor_position: mouse::Cursor,
+        _viewport: &iced::Rectangle,
+        _renderer: &Renderer,
+    ) -> mouse::Interaction {
+        if self.mouse_hidden {
+            mouse::Interaction::Hide
+        } else {
+            mouse::Interaction::default()
         }
     }
 }
