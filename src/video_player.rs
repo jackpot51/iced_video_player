@@ -1,12 +1,11 @@
 use crate::{pipeline::VideoPrimitive, video::Video};
-use gstreamer as gst;
 use cosmic::iced::{
     self,
     advanced::{self, graphics::core::event::Status, layout, widget, Widget},
     Element,
 };
 use cosmic::iced_wgpu::primitive::pipeline::Renderer as PrimitiveRenderer;
-use log::error;
+use gstreamer as gst;
 use std::{marker::PhantomData, sync::atomic::Ordering};
 use std::{sync::Arc, time::Instant};
 
@@ -21,7 +20,8 @@ where
     height: iced::Length,
     on_end_of_stream: Option<Message>,
     on_new_frame: Option<Message>,
-    on_error: Option<Box<dyn Fn(&glib::Error) -> Message + 'a>>,
+    on_error: Option<Box<dyn Fn(gst::Message) -> Message + 'a>>,
+    on_warning: Option<Box<dyn Fn(gst::Message) -> Message + 'a>>,
     _phantom: PhantomData<(Theme, Renderer)>,
 }
 
@@ -39,6 +39,7 @@ where
             on_end_of_stream: None,
             on_new_frame: None,
             on_error: None,
+            on_warning: None,
             _phantom: Default::default(),
         }
     }
@@ -85,10 +86,20 @@ where
 
     pub fn on_error<F>(self, on_error: F) -> Self
     where
-        F: 'a + Fn(&glib::Error) -> Message,
+        F: 'a + Fn(gst::Message) -> Message,
     {
         VideoPlayer {
             on_error: Some(Box::new(on_error)),
+            ..self
+        }
+    }
+
+    pub fn on_warning<F>(self, on_warning: F) -> Self
+    where
+        F: 'a + Fn(gst::Message) -> Message,
+    {
+        VideoPlayer {
+            on_warning: Some(Box::new(on_warning)),
             ..self
         }
     }
@@ -217,9 +228,9 @@ where
                 for msg in inner.bus.iter() {
                     match msg.view() {
                         gst::MessageView::Error(err) => {
-                            error!("bus returned an error: {err}");
+                            log::error!("bus returned an error: {err}");
                             if let Some(ref on_error) = self.on_error {
-                                shell.publish(on_error(&err.error()))
+                                shell.publish(on_error(err.copy()))
                             };
                         }
                         gst::MessageView::Eos(_eos) => {
@@ -232,6 +243,12 @@ where
                                 eos_pause = true;
                             }
                         }
+                        gst::MessageView::Warning(warn) => {
+                            log::warn!("bus returned a warning: {warn}");
+                            if let Some(ref on_warning) = self.on_warning {
+                                shell.publish(on_warning(warn.copy()))
+                            };
+                        }
                         _ => {}
                     }
                 }
@@ -239,7 +256,7 @@ where
                 // Don't run eos_pause if restart_stream is true; fixes "pausing" after restarting a stream
                 if restart_stream {
                     if let Err(err) = inner.restart_stream() {
-                        error!("cannot restart stream (can't seek): {err:#?}")
+                        log::error!("cannot restart stream (can't seek): {err:#?}")
                     }
                 } else if eos_pause {
                     inner.is_eos = true;

@@ -29,13 +29,9 @@ impl Sandbox for App {
     type Message = Message;
 
     fn new() -> Self {
-        let video = Video::new(
-            &url::Url::from_file_path(
-                std::env::args().nth(1).unwrap()
-            )
-            .unwrap(),
-        )
-        .unwrap();
+        let video =
+            Video::new(&url::Url::from_file_path(std::env::args().nth(1).unwrap()).unwrap())
+                .unwrap();
         App {
             video,
             position: 0.0,

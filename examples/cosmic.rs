@@ -11,6 +11,8 @@ use std::time::Duration;
 /// Runs application with these settings
 #[rustfmt::skip]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();
+
     let settings = Settings::default()
         .size(Size::new(1024., 768.));
 
@@ -70,7 +72,15 @@ impl cosmic::Application for App {
 
     /// Creates the application, and optionally emits command on initialize.
     fn init(core: Core, video: Self::Flags) -> (Self, Command<Self::Message>) {
-        (App { core, video, position: 0.0, dragging: false }, Command::none())
+        (
+            App {
+                core,
+                video,
+                position: 0.0,
+                dragging: false,
+            },
+            Command::none(),
+        )
     }
 
     /// Handle application events here.
@@ -119,7 +129,7 @@ impl cosmic::Application for App {
                 VideoPlayer::new(&self.video)
                     .on_end_of_stream(Message::EndOfStream)
                     .on_new_frame(Message::NewFrame)
-                    .width(Length::Fill)
+                    .width(Length::Fill),
             )
             .push(widget::vertical_space(Length::Fill))
             .push(
