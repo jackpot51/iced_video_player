@@ -28,10 +28,14 @@ url = "2" # media uri
 [dependencies.libcosmic]
 git = "https://github.com/pop-os/libcosmic.git"
 default-features = false
-features = ["tokio", "winit", "wgpu"]
+features = ["tokio", "winit"]
 
 [dev-dependencies]
 env_logger = "0.11"
+
+[features]
+default = ["wgpu"]
+wgpu = ["libcosmic/wgpu"]
 
 [package.metadata.nix]
 systems = ["x86_64-linux"]

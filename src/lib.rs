@@ -34,6 +34,7 @@
 //!
 //! You can programmatically control the video (e.g., seek, pause, loop, grab thumbnails) by accessing various methods on [`Video`].
 
+#[cfg(feature = "wgpu")]
 mod pipeline;
 mod video;
 mod video_player;

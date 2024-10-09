@@ -59,6 +59,9 @@ pub(crate) struct Internal {
     pub(crate) looping: bool,
     pub(crate) is_eos: bool,
     pub(crate) restart_stream: bool,
+
+    #[cfg(not(feature = "wgpu"))]
+    pub(crate) handle_opt: Option<img::Handle>,
 }
 
 impl Internal {
@@ -308,6 +311,9 @@ impl Video {
             looping: false,
             is_eos: false,
             restart_stream: false,
+
+            #[cfg(not(feature = "wgpu"))]
+            handle_opt: None,
         })))
     }
 
@@ -460,7 +466,7 @@ impl Video {
     }
 }
 
-fn yuv_to_rgba(yuv: &[u8], width: u32, height: u32) -> Vec<u8> {
+pub(crate) fn yuv_to_rgba(yuv: &[u8], width: u32, height: u32) -> Vec<u8> {
     let uv_start = width * height;
     let mut rgba = vec![];
 

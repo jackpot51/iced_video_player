@@ -1,12 +1,25 @@
-use crate::{gst, gst_pbutils, pipeline::VideoPrimitive, video::Video};
+use crate::{gst, gst_pbutils, video::Video};
 use cosmic::iced::{
     self,
     advanced::{self, graphics::core::event::Status, layout, widget, Widget},
     mouse, Element,
 };
-use cosmic::iced_wgpu::primitive::pipeline::Renderer as PrimitiveRenderer;
 use std::{marker::PhantomData, sync::atomic::Ordering};
 use std::{sync::Arc, time::Instant};
+
+#[cfg(feature = "wgpu")]
+use crate::pipeline::VideoPrimitive;
+#[cfg(feature = "wgpu")]
+use cosmic::iced_wgpu::primitive::pipeline::Renderer as PrimitiveRenderer;
+
+#[cfg(not(feature = "wgpu"))]
+use crate::video::yuv_to_rgba;
+#[cfg(not(feature = "wgpu"))]
+use cosmic::iced::advanced::image::Renderer as ImageRenderer;
+#[cfg(not(feature = "wgpu"))]
+trait PrimitiveRenderer: ImageRenderer<Handle = advanced::image::Handle> {}
+#[cfg(not(feature = "wgpu"))]
+impl PrimitiveRenderer for iced::Renderer {}
 
 /// Video player widget which displays the current frame of a [`Video`](crate::Video).
 pub struct VideoPlayer<'a, Message, Theme = iced::Theme, Renderer = iced::Renderer>
@@ -210,6 +223,7 @@ where
             inner.set_av_offset(Instant::now() - last_frame_time);
         }
 
+        #[cfg(feature = "wgpu")]
         renderer.draw_pipeline_primitive(
             drawing_bounds,
             VideoPrimitive::new(
@@ -220,6 +234,39 @@ where
                 upload_frame,
             ),
         );
+        
+        #[cfg(not(feature = "wgpu"))]
+        {
+            if upload_frame {
+                let yuv_data_opt = match inner.frame.lock() {
+                    Ok(frame) => Some(frame.clone()),
+                    Err(_err) => None,
+                };
+                inner.handle_opt = if let Some(yuv_data) = yuv_data_opt {
+                    //TODO: convert on worker thread?
+                    let rgba_data = yuv_to_rgba(
+                        &yuv_data,
+                        inner.width as _,
+                        inner.height as _,
+                    );
+                    Some(advanced::image::Handle::from_pixels(
+                        inner.width as _,
+                        inner.height as _,
+                        rgba_data,
+                    ))
+                } else {
+                    None
+                };
+            }
+            if let Some(handle) = &inner.handle_opt {
+                renderer.draw(
+                    handle.clone(),
+                    advanced::image::FilterMethod::Nearest,
+                    drawing_bounds,
+                    [0.0; 4],
+                );
+            }
+        }
     }
 
     fn on_event(
