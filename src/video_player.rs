@@ -11,7 +11,7 @@ use std::{sync::Arc, time::Instant};
 #[cfg(feature = "wgpu")]
 use crate::pipeline::VideoPrimitive;
 #[cfg(feature = "wgpu")]
-use cosmic::iced_wgpu::primitive::Renderer as PrimitiveRenderer;
+use cosmic::iced_wgpu::primitive::pipeline::Renderer as PrimitiveRenderer;
 
 #[cfg(not(feature = "wgpu"))]
 use crate::video::yuv_to_rgba;
@@ -212,7 +212,7 @@ where
             adjusted_fit.width / image_size.width,
             adjusted_fit.height / image_size.height,
         );
-        let final_size = image_size * scale;
+        let final_size = iced::Size::new(image_size.width * scale.x, image_size.height * scale.y);
 
         let position = match self.content_fit {
             iced::ContentFit::None => iced::Point::new(
@@ -239,7 +239,7 @@ where
         }
 
         #[cfg(feature = "wgpu")]
-        renderer.draw_primitive(
+        renderer.draw_pipeline_primitive(
             drawing_bounds,
             VideoPrimitive::new(
                 inner.id,
@@ -260,7 +260,7 @@ where
                 inner.handle_opt = if let Some(yuv_data) = yuv_data_opt {
                     //TODO: convert on worker thread?
                     let rgba_data = yuv_to_rgba(&yuv_data, inner.width as _, inner.height as _, 1);
-                    Some(advanced::image::Handle::from_rgba(
+                    Some(advanced::image::Handle::from_pixels(
                         inner.width as _,
                         inner.height as _,
                         rgba_data,
@@ -295,7 +295,7 @@ where
     ) -> Status {
         let mut inner = self.video.write();
 
-        if let iced::Event::Window(iced::window::Event::RedrawRequested(_)) = event {
+        if let iced::Event::Window(_, iced::window::Event::RedrawRequested(_)) = event {
             if inner.restart_stream || (!inner.is_eos && !inner.paused()) {
                 let mut restart_stream = false;
                 if inner.restart_stream {
