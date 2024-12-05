@@ -270,12 +270,10 @@ where
                 };
             }
             if let Some(handle) = &inner.handle_opt {
-                renderer.draw_image(
+                renderer.draw(
                     handle.clone(),
                     advanced::image::FilterMethod::Nearest,
                     drawing_bounds,
-                    iced::Radians(0.0),
-                    1.0,
                     [0.0; 4],
                 );
             }
