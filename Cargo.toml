@@ -11,20 +11,19 @@ authors = ["jazzfool"]
 edition = "2021"
 resolver = "2"
 license = "MIT OR Apache-2.0"
-exclude = [
-    ".media/test.mp4"
-]
+exclude = [".media/test.mp4"]
 
 [dependencies]
-gstreamer = "0.23"
-gstreamer-app = "0.23" # appsink
-gstreamer-base = "0.23" # basesrc
-gstreamer-pbutils = "0.23"
-glib = "0.20" # gobject traits and error type
+gstreamer = "0.25"
+gstreamer-app = "0.25"                                                                                 # appsink
+gstreamer-base = "0.25"                                                                                # basesrc
+gstreamer-pbutils = "0.25"
+glib = "0.22"                                                                                          # gobject traits and error type
 log = "0.4"
-thiserror = "1"
-url = "2" # media uri
+thiserror = "2"
+url = "2"                                                                                              # media uri
 html-escape = "0.2.13"
+iced_wgpu = { git = "https://github.com/pop-os/libcosmic", default-features = false, optional = true }
 
 [dependencies.libcosmic]
 git = "https://github.com/pop-os/libcosmic.git"
@@ -36,7 +35,7 @@ env_logger = "0.11"
 
 [features]
 default = ["wgpu"]
-wgpu = ["libcosmic/wgpu"]
+wgpu = ["libcosmic/wgpu", "iced_wgpu"]
 
 [package.metadata.nix]
 systems = ["x86_64-linux"]
@@ -49,11 +48,40 @@ runtimeLibs = [
     "libxkbcommon",
     "xorg.libX11",
     "xorg.libXrandr",
-    "xorg.libXi", "gst_all_1.gstreamer", "gst_all_1.gstreamermm", "gst_all_1.gst-plugins-bad", "gst_all_1.gst-plugins-ugly", "gst_all_1.gst-plugins-good", "gst_all_1.gst-plugins-base",
+    "xorg.libXi",
+    "gst_all_1.gstreamer",
+    "gst_all_1.gstreamermm",
+    "gst_all_1.gst-plugins-bad",
+    "gst_all_1.gst-plugins-ugly",
+    "gst_all_1.gst-plugins-good",
+    "gst_all_1.gst-plugins-base",
 ]
-buildInputs = ["libxkbcommon", "gst_all_1.gstreamer", "gst_all_1.gstreamermm", "gst_all_1.gst-plugins-bad", "gst_all_1.gst-plugins-ugly", "gst_all_1.gst-plugins-good", "gst_all_1.gst-plugins-base"]
+buildInputs = [
+    "libxkbcommon",
+    "gst_all_1.gstreamer",
+    "gst_all_1.gstreamermm",
+    "gst_all_1.gst-plugins-bad",
+    "gst_all_1.gst-plugins-ugly",
+    "gst_all_1.gst-plugins-good",
+    "gst_all_1.gst-plugins-base",
+]
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]
 rustdoc-args = ["--cfg", "docsrs"]
 targets = ["wasm32-unknown-unknown"]
+
+
+# [patch.'https://github.com/pop-os/libcosmic']
+# libcosmic = { path = "../libcosmic" }
+# cosmic-config = { path = "../libcosmic/cosmic-config" }
+# cosmic-theme = { path = "../libcosmic/cosmic-theme" }
+# libcosmic = { git = "https://github.com/pop-os/libcosmic//", branch = "iced-rebase" }
+# cosmic-config = { git = "https://github.com/pop-os/libcosmic//", branch = "iced-rebase" }
+# cosmic-theme = { git = "https://github.com/pop-os/libcosmic//", branch = "iced-rebase" }
+
+[dev_dependencies]
+libcosmic = { git = "https://github.com/pop-os/libcosmic", features = [
+    "wgpu",
+    "wayland",
+] }

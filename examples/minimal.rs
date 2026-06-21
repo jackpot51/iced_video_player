@@ -1,14 +1,19 @@
-use cosmic::iced;
-
-use iced::{
-    widget::{Button, Column, Container, Row, Slider, Text},
-    Element,
-};
-use iced_video_player::{Video, VideoPlayer};
 use std::time::Duration;
 
-fn main() -> iced::Result {
-    iced::run("Iced Video Player", App::update, App::view)
+use cosmic::iced::{self, Program, Task, Theme};
+
+use iced::{
+    application::Application,
+    widget::{Button, Column, Container, Row, Slider, Text},
+};
+use iced_video_player::{Video, VideoPlayer};
+
+pub fn main() -> iced::Result {
+    application().run()
+}
+
+fn application() -> Application<impl Program<Message = Message, Theme = Theme>> {
+    iced::application(App::default, App::update, App::view).window_size((500.0, 800.0))
 }
 
 #[derive(Clone, Debug)]
@@ -49,7 +54,7 @@ impl Default for App {
 }
 
 impl App {
-    fn update(&mut self, message: Message) {
+    fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::TogglePause => {
                 self.video.set_paused(!self.video.paused());
@@ -78,9 +83,10 @@ impl App {
                 }
             }
         }
+        Task::none()
     }
 
-    fn view(&self) -> Element<Message> {
+    fn view(&self) -> iced::Element<'_, Message> {
         Column::new()
             .push(
                 Container::new(
