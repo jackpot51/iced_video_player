@@ -41,6 +41,27 @@ impl From<u64> for Position {
     }
 }
 
+fn is_valid_framerate(framerate: f64) -> bool {
+    framerate.is_finite() && framerate >= 0.0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_valid_framerate;
+
+    #[test]
+    fn variable_framerate_is_valid() {
+        assert!(is_valid_framerate(0.0));
+    }
+
+    #[test]
+    fn invalid_framerates_are_rejected() {
+        assert!(!is_valid_framerate(f64::NAN));
+        assert!(!is_valid_framerate(f64::INFINITY));
+        assert!(!is_valid_framerate(-1.0));
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct Frame(gst::Sample);
 
@@ -292,11 +313,8 @@ impl Video {
             (0, 0, 4.0, false)
         };
 
-        if framerate.is_nan()
-            || framerate.is_infinite()
-            || framerate < 0.0
-            || framerate.abs() < f64::EPSILON
-        {
+        // GStreamer uses 0/1 to represent variable or unknown framerates.
+        if !is_valid_framerate(framerate) {
             return Err(Error::Framerate(framerate));
         }
 
@@ -462,6 +480,8 @@ impl Video {
     }
 
     /// Get the framerate of the video as frames per second.
+    ///
+    /// Returns `0.0` when GStreamer reports a variable or unknown framerate.
     pub fn framerate(&self) -> f64 {
         self.read().framerate
     }
